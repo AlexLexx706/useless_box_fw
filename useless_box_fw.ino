@@ -9,9 +9,9 @@
 #define HALF_RESOLUTION 2047
 
 //debug messages
-#define DEBUG_PROC_STATE
-#define DEBUG_BUTTONS
-#define DEBUG_ENCODER
+//#define DEBUG_PROC_STATE
+//#define DEBUG_BUTTONS
+// #define DEBUG_ENCODER
 
 // stepper motor settings
 #define STEPS_PER_REVOLUTION 200 * 2
@@ -21,7 +21,7 @@
 #define MAX_SPEED (5000)
 #define MAX_ACCELERATION (7000)
 //#define DISABLE_AT_STOP
-#define MOVE_TO_NEAREST
+//#define MOVE_TO_NEAREST
 
 //buttons defines
 #define BUTTON_0 9
@@ -54,7 +54,6 @@
 struct ButtonState {
 	char state;
 	int pos;
-	char trigger;
 	unsigned long s_time;
 };
 
@@ -65,17 +64,17 @@ static int buttons_map[] = {
 
 //contain button states
 static ButtonState buttons_states[] = {
-	{0, -2500, 0, 0},
-	{0, -2200, 0, 0},
-	{0, -1900, 0, 0},
-	{0, -1600, 0, 0},
-	{0, -1300, 0, 0},
-	{0, -1000, 0, 0},
-	{0, -700, 0, 0},
-	{0, -400, 0, 0},
-	{0, -100, 0, 0},
-	{0, 0, 0, 0},
-	{0, 0, 0, 0}
+	{0, -2500, 0},
+	{0, -2200, 0},
+	{0, -1900, 0},
+	{0, -1600, 0},
+	{0, -1300, 0},
+	{0, -1000, 0},
+	{0, -700, 0},
+	{0, -400, 0},
+	{0, -100, 0},
+	{0, 0, 0},
+	{0, 0, 0}
 };
 
 static Servo servo_1;
@@ -208,13 +207,11 @@ void update_buttons(unsigned long cur_time){
 		cur_state = digitalRead(buttons_map[i]);
 
 		//1. check for state changed
-		if (cur_state != buttons_states[i].state && !buttons_states[i].trigger) {
-			buttons_states[i].s_time = millis();
-			buttons_states[i].trigger = 1;
+		if (cur_state == buttons_states[i].state) {
+			buttons_states[i].s_time = cur_time;
 		//2. wait timeout and update state
-		} else if (buttons_states[i].trigger && (cur_time - buttons_states[i].s_time) > DEBOUNCE_DELAY) {
+		} else if ((cur_time - buttons_states[i].s_time) > DEBOUNCE_DELAY) {
 			buttons_states[i].state = cur_state;
-			buttons_states[i].trigger = 0;
 		}
 		#ifdef DEBUG_BUTTONS
 			button_mask |= (buttons_states[i].state ? 1 : 0) << i;
