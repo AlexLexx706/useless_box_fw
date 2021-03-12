@@ -8,15 +8,22 @@
 #define RESOLUTION 4096
 #define HALF_RESOLUTION 2047
 
-//enable debug messages
+//debug messages
 #define DEBUG_PROC_STATE
-// #define DEBUG_BUTTONS
+#define DEBUG_BUTTONS
+#define DEBUG_ENCODER
 
+// stepper motor settings
 #define STEPS_PER_REVOLUTION 200 * 2
 #define DIR_PIN 4
 #define STEP_PIN 7
 #define ENABLE_PIN 8
+#define MAX_SPEED (5000)
+#define MAX_ACCELERATION (7000)
+//#define DISABLE_AT_STOP
+#define MOVE_TO_NEAREST
 
+//buttons defines
 #define BUTTON_0 9
 #define BUTTON_1 10
 #define BUTTON_2 11
@@ -26,27 +33,22 @@
 #define BUTTON_6 A3
 #define BUTTON_7 A2
 #define BUTTON_8 A1
-
 #define BUTTON_END_LEFT 2
 #define BUTTON_END_RIGHT 3
 
-#define SERVO_1 5
-#define SERVO_2 6
-
-#define DEBOUNCE_DELAY 70 // Время задержки для проверки
+// used for debounce procedure
+#define DEBOUNCE_DELAY 70
 #define START_POS -50
 
 #define LEFT_END_BUTTON_ID 9
 #define RIGHT_END_BUTTON_ID 10
 
+// servos settings
+#define SERVO_1 5
+#define SERVO_2 6
 #define SERVO_1_INIT_POS 0
 #define SERVO_1_PRESS_POS 80
 #define SERVO_1_RELEASE_POS 65
-
-#define MAX_SPEED (5000)
-#define MAX_ACCELERATION (7000)
-
-#define DISABLE_AT_STOP
 
 //description of button state
 struct ButtonState {
@@ -174,14 +176,16 @@ void request_callback(uint8_t status, void *arg, uint8_t * data, uint8_t datalen
 		encoder_state.position = (encoder_state.revolutions * RESOLUTION + output) / float(RESOLUTION) * 360;
 
 		// Serial.println(encoder_state.position);
-		encoder_state.counter++;
-		unsigned long c_time = millis();
+		#ifdef DEBUG_ENCODER
+			//encoder_state.counter++;
+			unsigned long c_time = millis();
 
-		if (c_time - encoder_state.s_time >= 1000) {
-			encoder_state.s_time = c_time;
-			Serial.print(encoder_state.counter); Serial.print(" "); Serial.println(encoder_state.position); 
-			encoder_state.counter = 0;
-		}
+			if (c_time - encoder_state.s_time >= 100) {
+				encoder_state.s_time = c_time;
+				Serial.print("e:"); Serial.println(encoder_state.position);
+				//encoder_state.counter = 0;
+			}
+		#endif
 
 		//1. request new position:
 		uint8_t arg = RAW_ANGLE_ADDRESS_MSB;
@@ -308,18 +312,23 @@ void loop() {
 				#endif
 				proc.state = 2;
 			//4.2 switch to nearest button
-			} else if (cur_nearest_button != proc.nearest_button) {
-				proc.nearest_button = cur_nearest_button;
-				stepper.moveTo(buttons_states[proc.nearest_button].pos);
-				#ifdef DISABLE_AT_STOP
-					digitalWrite(ENABLE_PIN, LOW);
-				#endif
-				#ifdef DEBUG_PROC_STATE
-					Serial.print("3. nearest button changed, move to new button:");
-					Serial.println(proc.nearest_button);
-				#endif
+			}
+			#ifdef MOVE_TO_NEAREST
+				else if (cur_nearest_button != proc.nearest_button) {
+					proc.nearest_button = cur_nearest_button;
+					stepper.moveTo(buttons_states[proc.nearest_button].pos);
+					#ifdef DISABLE_AT_STOP
+						digitalWrite(ENABLE_PIN, LOW);
+					#endif
+					#ifdef DEBUG_PROC_STATE
+						Serial.print("3. nearest button changed, move to new button:");
+						Serial.println(proc.nearest_button);
+					#endif
+				}
+			#endif
+
 			//4.3 check for complete
-			} else if (stepper.distanceToGo() == 0) {
+			if (stepper.distanceToGo() == 0) {
 				stepper.stop();
 				#ifdef DISABLE_AT_STOP
 					digitalWrite(ENABLE_PIN, HIGH);
@@ -356,5 +365,5 @@ void loop() {
 		}
 	}
 	stepper.run();
-	// i2c_master.loop();
+	i2c_master.loop();
 }
