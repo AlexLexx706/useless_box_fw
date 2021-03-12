@@ -1,6 +1,12 @@
 #include <AccelStepper.h>
 #include <Servo.h>
-#include <AS5600.h>
+#include <AsyncI2CMaster.h>
+
+//settings for decoder
+#define I2C_ADDRESS 0x36
+#define RAW_ANGLE_ADDRESS_MSB 0x0C
+#define RESOLUTION 4096
+#define HALF_RESOLUTION 2047
 
 //enable debug messages
 #define DEBUG_PROC_STATE
@@ -37,11 +43,10 @@
 #define SERVO_1_PRESS_POS 80
 #define SERVO_1_RELEASE_POS 65
 
-
 #define MAX_SPEED (5000)
 #define MAX_ACCELERATION (7000)
 
-// #define DISABLE_AT_STOP
+#define DISABLE_AT_STOP
 
 //description of button state
 struct ButtonState {
@@ -74,16 +79,18 @@ static ButtonState buttons_states[] = {
 static Servo servo_1;
 static Servo servo_2;
 static AccelStepper stepper(AccelStepper::DRIVER, STEP_PIN, DIR_PIN);
-static AS5600 encoder;
+static AsyncI2CMaster i2c_master;
+
 
 struct EncoderSate {
-	unsigned long start_time;
+	unsigned long s_time;
 	long revolutions;		// number of revolutions the encoder has made
 	double position;		// the calculated value the encoder is at
 	int lastOutput;			// last output from AS5600
+	int counter;
 };
 
-static EncoderSate encoder_state = {millis(), 0, 0, 0};
+static EncoderSate encoder_state = {millis(), 0, 0, 0, 0};
 
 struct ProcessState {
 	int state;
@@ -95,6 +102,22 @@ struct ProcessState {
 //state of process
 ProcessState proc = {0, -1, 0, 300};
 
+void dump_error_status(uint8_t status) {
+	switch(status) {
+		case I2C_STATUS_DEVICE_NOT_PRESENT:
+			Serial.println(F("Device not present!"));
+			break;
+		case I2C_STATUS_TRANSMIT_ERROR:
+			Serial.println(F("Bus error"));
+			break;
+		case I2C_STATUS_NEGATIVE_ACKNOWLEDGE:
+			Serial.println(F("Negative acknowledge"));
+			break;
+		case I2C_STATUS_OUT_OF_MEMORY:
+			Serial.println(F("memory not enought"));
+			break;
+	}
+}
 
 void setup() {
 	// 0. setup serial
@@ -121,37 +144,52 @@ void setup() {
 	servo_1.write(SERVO_1_INIT_POS);
 
 	//4. init encoder
-	uint16_t output = encoder.getPosition();
-	encoder_state.lastOutput = output;
-	encoder_state.position = output / 4096. * 360;
+	i2c_master.begin();
+	uint8_t arg = RAW_ANGLE_ADDRESS_MSB;
+	uint8_t status;
+	if (status = i2c_master.request(I2C_ADDRESS, &arg, sizeof(arg), 2, request_callback, NULL) != I2C_STATUS_OK) {
+		dump_error_status(status);
+	}
 
 	#ifdef DEBUG_PROC_STATE
 		Serial.println("0. move to begin");
 	#endif
 }
 
-void test_encoder() {
-	// get the raw value of the encoder
-	unsigned long cur_time = millis();
-
-	//read decoder data 10 HZ
-	if (cur_time - encoder_state.start_time >= 100) {
-		encoder_state.start_time = cur_time;
-		int output = encoder.getPosition();
-
+void request_callback(uint8_t status, void *arg, uint8_t * data, uint8_t datalen) {
+	if( status == I2C_STATUS_OK ) {
+		//1. decode pos data:
+		int output = (data[0] << 8) | (data[1]);
 		// check if a full rotation has been made
-		if ((encoder_state.lastOutput - output) > 2047 ) {
+		if ((encoder_state.lastOutput - output) > HALF_RESOLUTION ) {
 			encoder_state.revolutions++;
 		}
 		
-		if ((encoder_state.lastOutput - output) < -2047 ) {
+		if ((encoder_state.lastOutput - output) < -HALF_RESOLUTION ) {
 			encoder_state.revolutions--;
 		}
 		encoder_state.lastOutput = output;
 
 		// calculate the position the the encoder is at based off of the number of revolutions
-		encoder_state.position = (encoder_state.revolutions * 4096 + output) / 4096. * 360;
-		Serial.println(encoder_state.position);
+		encoder_state.position = (encoder_state.revolutions * RESOLUTION + output) / float(RESOLUTION) * 360;
+
+		// Serial.println(encoder_state.position);
+		encoder_state.counter++;
+		unsigned long c_time = millis();
+
+		if (c_time - encoder_state.s_time >= 1000) {
+			encoder_state.s_time = c_time;
+			Serial.print(encoder_state.counter); Serial.print(" "); Serial.println(encoder_state.position); 
+			encoder_state.counter = 0;
+		}
+
+		//1. request new position:
+		uint8_t arg = RAW_ANGLE_ADDRESS_MSB;
+		if (i2c_master.request(I2C_ADDRESS, &arg, sizeof(arg), 2, request_callback, NULL) != I2C_STATUS_OK) {
+			dump_error_status(status);
+		}
+	} else {
+		dump_error_status(status);
 	}
 }
 
@@ -318,4 +356,5 @@ void loop() {
 		}
 	}
 	stepper.run();
+	// i2c_master.loop();
 }
