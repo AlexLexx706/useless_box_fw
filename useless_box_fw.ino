@@ -9,7 +9,7 @@
 #define HALF_RESOLUTION 2047
 #define B0_ENCODER_POS -25855
 // debug messages
-#define DEBUG_PROC_STATE
+// #define DEBUG_PROC_STATE
 // #define DEBUG_BUTTONS
 // #define DEBUG_ENCODER
 
@@ -69,17 +69,17 @@ static int buttons_map[] = {
 
 //contain button states
 static ButtonState buttons_states[] = {
-	{0, -2500, 0},
-	{0, -2200, 0},
-	{0, -1900, 0},
-	{0, -1600, 0},
-	{0, -1300, 0},
-	{0, -1000, 0},
-	{0, -700, 0},
-	{0, -400, 0},
-	{0, -100, 0},
-	{0, 0, 0},
-	{0, 0, 0}
+	{1, -2500, 0},
+	{1, -2200, 0},
+	{1, -1900, 0},
+	{1, -1600, 0},
+	{1, -1300, 0},
+	{1, -1000, 0},
+	{1, -700, 0},
+	{1, -400, 0},
+	{1, -100, 0},
+	{1, 0, 0},
+	{1, 0, 0}
 };
 
 static Servo servo_1;
@@ -243,7 +243,7 @@ int find_nearest_button() {
 	int tmp;
 
 	for (size_t i = 0; i < sizeof(buttons_states) / sizeof(buttons_states[0]) - 2; i++) {
-		if (buttons_states[i].state == HIGH) {
+		if (buttons_states[i].state == LOW) {
 			tmp =  abs(stepper.currentPosition() - buttons_states[i].pos);
 			if (tmp < min_pos) {
 				nearest_button = i;
