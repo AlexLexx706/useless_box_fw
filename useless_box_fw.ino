@@ -8,10 +8,13 @@
 #define RESOLUTION 4096
 #define HALF_RESOLUTION 2047
 #define B0_ENCODER_POS -25855
+#define B0_ENCODER_POS -25642
+
 // debug messages
 // #define DEBUG_PROC_STATE
 // #define DEBUG_BUTTONS
 // #define DEBUG_ENCODER
+// #define DEBUG_ENCODER_STEPER
 
 // stepper motor settings
 #define STEPS_PER_REVOLUTION 200 * 2
@@ -46,14 +49,19 @@
 #define RIGHT_END_BUTTON_ID 10
 
 // servos settings
-#define SERVO_1 5
-#define SERVO_2 6
-#define SERVO_1_INIT_POS 0
-#define SERVO_1_PRESS_POS 80
-#define SERVO_1_RELEASE_POS 65
-#define SERVO_PRESS_RELEASE_TIMEOUT 90
+#define SERVO_HOOK 5
+#define SERVO_DOOR 6
+#define SERVO_DOOR_CLOSE_POS 47
+#define SERVO_DOOR_OPEN_POS 0
+
+
+#define SERVO_HOOK_INIT_POS 0
+#define SERVO_HOOK_PRESS_POS 92
+#define SERVO_HOOK_RELEASE_POS 76
+#define SERVO_PRESS_RELEASE_TIMEOUT 20
 #define SERVO_INIT_TIMEOUT 300
 #define MOVE_SERVO_INIT_TIMEOUT 1500
+#define DOOR_LOCK_TIME 1000
 
 //description of button state
 struct ButtonState {
@@ -144,10 +152,11 @@ void setup() {
 	}
 
 	//3. init servos
-	servo_1.attach(SERVO_1);
-	servo_2.attach(SERVO_2);
+	servo_1.attach(SERVO_HOOK);
+	servo_2.attach(SERVO_DOOR);
 
-	servo_1.write(SERVO_1_INIT_POS);
+	servo_1.write(SERVO_HOOK_INIT_POS);
+	servo_2.write(SERVO_DOOR_CLOSE_POS);
 
 	//4. init encoder
 	i2c_master.begin();
@@ -261,7 +270,7 @@ void loop() {
 	update_buttons(cur_time);
 
 	switch (proc.state) {
-		//1. move to start pos
+		//0. move to start pos
 		case 0: {
 			// 1.2 reset position
 			if (buttons_states[RIGHT_END_BUTTON_ID].state == LOW) {
@@ -280,7 +289,7 @@ void loop() {
 			}
 			break;
 		}
-		//2. wait for complete of moveing a little bit from start
+		//1. wait for complete of moveing a little bit from start
 		case 1: {
 			//2.2 check for complete
 			if(stepper.distanceToGo() == 0) {
@@ -297,10 +306,10 @@ void loop() {
 			}
 			break;
 		}
-		//3. find nearest button and wait for move servo to init state
+		//2. find nearest button and wait for move servo to init state
 		case 2: {
 			proc.nearest_button  = find_nearest_button();
-			// 3.1 move to the nearest point
+			// 2.1 move to the nearest point
 			if (proc.nearest_button != -1) {
 				proc.state = 3;
 				stepper.moveTo(buttons_states[proc.nearest_button].pos);
@@ -311,29 +320,29 @@ void loop() {
 					Serial.print(F("2. start move to nearest:"));
 					Serial.println(proc.nearest_button);
 				#endif
-			// 3.2 move servo to init pos
+			// 2.2 move servo to init pos
 			} else if (cur_time - proc.start_time > MOVE_SERVO_INIT_TIMEOUT) {
-				servo_1.write(SERVO_1_INIT_POS);
+				servo_1.write(SERVO_HOOK_INIT_POS);
 				proc.start_time = cur_time;
 				proc.wait_time = SERVO_INIT_TIMEOUT;
-				proc.state = 6;
+				proc.state = 7;
 			}
 			break;
-		//4. move to button
+		//3. move to button
 		} case 3: {
 			int cur_nearest_button = find_nearest_button();
-			// 4.1 user unpress button
+			// 3.1 user unpress button
 			if (cur_nearest_button == -1) {
 				#ifdef DEBUG_PROC_STATE
 					Serial.println(F("3. stop stepper, button released by user, start find neareset 2"));
 				#endif
-					stepper.stop();
+				stepper.stop();
 				#ifdef DISABLE_AT_STOP
 					digitalWrite(ENABLE_PIN, HIGH);
 				#endif
 				proc.state = 2;
 				proc.start_time = cur_time;
-			//4.2 switch to nearest button
+			//3.2 switch to nearest button
 			} else if (cur_nearest_button != proc.nearest_button) {
 				proc.nearest_button = cur_nearest_button;
 				stepper.moveTo(buttons_states[proc.nearest_button].pos);
@@ -344,7 +353,7 @@ void loop() {
 					Serial.print(F("3. nearest button changed, move to new button:"));
 					Serial.println(proc.nearest_button);
 				#endif
-			//4.3 check for complete
+			//3.3 check for complete
 			} else if (stepper.distanceToGo() == 0) {
 				stepper.stop();
 				#ifdef DISABLE_AT_STOP
@@ -352,18 +361,21 @@ void loop() {
 				#endif
 				proc.state = 4;
 				proc.start_time = cur_time;
-				servo_1.write(SERVO_1_PRESS_POS);
+
+				servo_1.write(SERVO_HOOK_PRESS_POS);
+				servo_2.write(SERVO_DOOR_OPEN_POS);
 
 				#ifdef DEBUG_PROC_STATE
 					Serial.println(F("3. complete move, start wait servo 1 press button"));
 				#endif
 			}
 			break;
-		//5. wait for press button complete
+		//4. wait for press button complete
 		} case 4: {
-			if ((cur_time - proc.start_time) > proc.wait_time) {
+			if (buttons_states[proc.nearest_button].state == HIGH) {
+			// if ((cur_time - proc.start_time) > proc.wait_time) {
 				proc.wait_time = SERVO_PRESS_RELEASE_TIMEOUT;
-				servo_1.write(SERVO_1_RELEASE_POS);
+				servo_1.write(SERVO_HOOK_RELEASE_POS);
 				proc.start_time = cur_time;
 				proc.state = 5;
 				#ifdef DEBUG_PROC_STATE
@@ -371,7 +383,7 @@ void loop() {
 				#endif
 			}
 			break;
-		//6. wait fot servo complete move to releace state
+		//5. wait fot servo complete move to releace state
 		} case 5: {
 			if ((cur_time - proc.start_time) > proc.wait_time) {
 				proc.state = 2;
@@ -381,18 +393,19 @@ void loop() {
 				#endif
 			}
 			break;
-		// wait for servo compete move to init pos
-		} case 6: {
+		//7. wait for servo compete move to init pos
+		} case 7: {
 			if ((cur_time - proc.start_time) > proc.wait_time) {
 				proc.start_time = cur_time;
-				proc.state = 7;
+				proc.state = 8;
+				servo_2.write(SERVO_DOOR_CLOSE_POS);
 				#ifdef DEBUG_PROC_STATE
-					Serial.println(F("6. servo in init state, start find neareset 7"));
+					Serial.println(F("7. servo in init state, start find neareset 8"));
 				#endif
 			}
 			break;
-		// wait for press button
-		} case 7: {
+		//8. wait for press button
+		} case 8: {
 			proc.nearest_button  = find_nearest_button();
 			//move to the nearest point
 			if (proc.nearest_button != -1) {
@@ -402,7 +415,7 @@ void loop() {
 					digitalWrite(ENABLE_PIN, LOW);
 				#endif
 				#ifdef DEBUG_PROC_STATE
-					Serial.print(F("7. start move to nearest:"));
+					Serial.print(F("8. start move to nearest:"));
 					Serial.println(proc.nearest_button);
 				#endif
 			//move servo to init pos
@@ -412,7 +425,8 @@ void loop() {
 	}
 
 	long enc_pos = get_encoder_to_stepper_pos();
-	long offset = abs(enc_pos - stepper.currentPosition());
+	long stepper_cur_pos = stepper.currentPosition();
+	long offset = abs(enc_pos - stepper_cur_pos);
 	//reset stepper pos
 	if (proc.state > 0 && offset > MAX_ENC_STEPER_OFFSET) {
 		#ifdef DEBUG_PROC_STATE
@@ -421,6 +435,20 @@ void loop() {
 		#endif
 		stepper.setCurrentPosition(enc_pos);
 	}
+	#ifdef DEBUG_ENCODER_STEPER
+		static int counter = 0;
+		if (counter % 1000 == 0) {
+			Serial.print("row enc pos:");
+			Serial.print(get_encoder_pos());
+			Serial.print(F(" enc_pos:"));
+			Serial.print(enc_pos);
+			Serial.print(F(" steper_pos:"));
+			Serial.print(stepper_cur_pos);
+			Serial.print(F(" offset:"));
+			Serial.println(offset);
+		}
+		counter++;
+	#endif
 
 	stepper.run();
 	i2c_master.loop();
