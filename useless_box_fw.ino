@@ -1,6 +1,6 @@
 #include <AccelStepper.h>
-#include <Servo.h>
 #include <AsyncI2CMaster.h>
+#include <Servo.h>
 
 //settings for decoder
 #define I2C_ADDRESS 0x36
@@ -15,7 +15,7 @@
 // #define DEBUG_BUTTONS
 // #define DEBUG_ENCODER
 // #define DEBUG_ENCODER_STEPER
-
+// #define DEBUG_I2C_STATUS
 // stepper motor settings
 #define STEPS_PER_REVOLUTION 200 * 2
 #define DIR_PIN 4
@@ -133,6 +133,23 @@ void dump_error_status(uint8_t status) {
 	}
 }
 
+void send_btn_state() {
+  char buffer[40];
+  sprintf(buffer, "bt_st: %d %d %d %d %d %d %d %d %d %d %d\n",
+    buttons_states[0].state,
+    buttons_states[1].state,
+    buttons_states[2].state,
+    buttons_states[3].state,
+    buttons_states[4].state,
+    buttons_states[5].state,
+    buttons_states[6].state,
+    buttons_states[7].state,
+    buttons_states[8].state,
+    buttons_states[9].state,
+    buttons_states[10].state);
+  Serial.print(buffer);
+}
+
 void setup() {
 	// 0. setup serial
 	Serial.begin(115200);
@@ -163,7 +180,9 @@ void setup() {
 	uint8_t arg = RAW_ANGLE_ADDRESS_MSB;
 	uint8_t status;
 	if (status = i2c_master.request(I2C_ADDRESS, &arg, sizeof(arg), 2, request_callback, NULL) != I2C_STATUS_OK) {
-		dump_error_status(status);
+		#ifdef DEBUG_I2C_STATUS
+		  dump_error_status(status);
+	  #endif
 	}
 
 	#ifdef DEBUG_PROC_STATE
@@ -201,10 +220,14 @@ void request_callback(uint8_t status, void *arg, uint8_t * data, uint8_t datalen
 		//1. request new position:
 		uint8_t arg = RAW_ANGLE_ADDRESS_MSB;
 		if (i2c_master.request(I2C_ADDRESS, &arg, sizeof(arg), 2, request_callback, NULL) != I2C_STATUS_OK) {
-			dump_error_status(status);
+			#ifdef DEBUG_I2C_STATUS
+			  dump_error_status(status);
+      #endif
 		}
 	} else {
-		dump_error_status(status);
+    #ifdef DEBUG_I2C_STATUS
+		  dump_error_status(status);
+    #endif
 	}
 }
 
@@ -263,6 +286,7 @@ int find_nearest_button() {
 	return nearest_button;
 }
 
+unsigned long last_send_btn_state_time = millis();
 void loop() {
 	unsigned long cur_time = millis();
 
@@ -452,5 +476,10 @@ void loop() {
 
 	stepper.run();
 	i2c_master.loop();
+
+  if (cur_time - last_send_btn_state_time >= 100) {
+    last_send_btn_state_time = cur_time;
+    send_btn_state();
+  }
 
 }
