@@ -1,1 +1,1 @@
-arduino-cli compile -b arduino:avr:nano -v ./useless_box_fw.ino
+arduino-cli compile -b arduino:avr:nano  ./useless_box_fw.ino
