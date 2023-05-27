@@ -1,6 +1,8 @@
 #include <AccelStepper.h>
 #include <AsyncI2CMaster.h>
 #include <Servo.h>
+#include "cmd_parser.h"
+
 //settings for decoder
 #define I2C_ADDRESS 0x36
 #define RAW_ANGLE_ADDRESS_MSB 0x0C
@@ -97,6 +99,10 @@ struct ProcessState {
 	unsigned long start_time;
 	unsigned long wait_time;
 };
+
+CommandParser cmd_parser;
+
+
 //state of process
 ProcessState proc = {0, -1, 0, SERVO_INIT_TIMEOUT};
 void dump_error_status(uint8_t status) {
@@ -133,6 +139,8 @@ void send_btn_state() {
 	buffer[2] = '\n';
 	Serial.write(buffer, sizeof(buffer));
 }
+
+
 void setup() {
 	// 0. setup serial
 	Serial.begin(115200);
@@ -258,6 +266,7 @@ int find_nearest_button() {
 unsigned long last_send_btn_state_time = millis();
 void loop() {
 	unsigned long cur_time = millis();
+	cmd_parser.parce_stream();
 	//update buttons
 	update_buttons(cur_time);
 	switch (proc.state) {
