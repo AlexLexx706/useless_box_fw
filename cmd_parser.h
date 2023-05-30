@@ -4,29 +4,6 @@
 
 
 #define ALLOW_CMD_PARSER_DEBUG
-struct __attribute__((__packed__)) CmdWithoutParams {
-	byte head;
-	byte size;
-	byte cmd;
-	byte crc;
-};
-
-struct __attribute__((__packed__)) CmdMoveServo {
-	byte head;
-	byte size;
-	byte cmd;
-	byte num;
-	byte value;
-	byte crc;
-};
-
-struct __attribute__((__packed__)) CmdMoveFinger {
-	byte head;
-	byte size;
-	byte cmd;
-	byte btn;
-	byte crc;
-};
 
 class CommandParser {
 	enum Commands {
@@ -37,6 +14,30 @@ class CommandParser {
 		MOVE_FINGER = 5,		   // CmdMoveFinger
 		ACTIVATE_STATE_STREAM = 6, // CmdWithoutParams
 		STOP_STATE_STREAM = 7,	   // CmdWithoutParams
+	};
+
+	struct __attribute__((__packed__)) CmdWithoutParams {
+		byte head;
+		byte size;
+		byte cmd;
+		byte crc;
+	};
+
+	struct __attribute__((__packed__)) CmdMoveServo {
+		byte head;
+		byte size;
+		byte cmd;
+		byte num;
+		byte value;
+		byte crc;
+	};
+
+	struct __attribute__((__packed__)) CmdMoveFinger {
+		byte head;
+		byte size;
+		byte cmd;
+		byte btn;
+		byte crc;
 	};
 
 	static const int buffer_size = 32;
