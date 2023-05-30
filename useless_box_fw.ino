@@ -141,9 +141,88 @@ void send_btn_state() {
 }
 
 
+void cmd_protocol_handler(char * buffer, int size) {
+	switch (buffer[2]) {
+		// CmdWithoutParams
+		case CommandParser::OPEN_DOOR: {
+			#ifdef ALLOW_CMD_PARSER_DEBUG
+				Serial.print(F("cmd open door:"));
+				Serial.println(reinterpret_cast<CommandParser::CmdWithoutParams *>(buffer)->cmd, DEC);
+			#endif
+			break;
+		}
+		// CmdWithoutParams
+		case CommandParser::CLOSE_DOOR: {
+			#ifdef ALLOW_CMD_PARSER_DEBUG
+				Serial.print(F("cmd close door:"));
+				Serial.println(reinterpret_cast<CommandParser::CmdWithoutParams *>(buffer)->cmd, DEC);
+			#endif
+			break;
+		}
+		// CmdMoveFinger
+		case CommandParser::PRESS_BUTTON: {
+			#ifdef ALLOW_CMD_PARSER_DEBUG
+				Serial.print(F("cmd press button cmd:"));
+				Serial.print(reinterpret_cast<CommandParser::CmdMoveFinger *>(buffer)->cmd, DEC);
+				Serial.print(F(" btn:"));
+				Serial.println(reinterpret_cast<CommandParser::CmdMoveFinger *>(buffer)->btn, DEC);
+			#endif
+			break;
+		}
+		// CmdMoveServo
+		case CommandParser::MOVE_SERVO: {
+			#ifdef ALLOW_CMD_PARSER_DEBUG
+				Serial.print(F("cmd move servo cmd:"));
+				Serial.print(reinterpret_cast<CommandParser::CmdMoveServo *>(buffer)->cmd, DEC);
+				Serial.print(F(" num:"));
+				Serial.print(reinterpret_cast<CommandParser::CmdMoveServo *>(buffer)->num, DEC);
+				Serial.print(F(" val:"));
+				Serial.println(reinterpret_cast<CommandParser::CmdMoveServo *>(buffer)->value, DEC);
+			#endif
+			break;
+		}
+		// CmdMoveFinger
+		case CommandParser::MOVE_FINGER: {
+			#ifdef ALLOW_CMD_PARSER_DEBUG
+				Serial.print(F("cmd move finger cmd:"));
+				Serial.print(reinterpret_cast<CommandParser::CmdMoveFinger *>(buffer)->cmd, DEC);
+				Serial.print(F(" btn:"));
+				Serial.println(reinterpret_cast<CommandParser::CmdMoveFinger *>(buffer)->btn, DEC);
+			#endif
+			break;
+		}
+		// CmdWithoutParams
+		case CommandParser::ACTIVATE_STATE_STREAM: {
+			#ifdef ALLOW_CMD_PARSER_DEBUG
+				Serial.print(F("cmd activate state stream:"));
+				Serial.println(reinterpret_cast<CommandParser::CmdWithoutParams *>(buffer)->cmd, DEC);
+			#endif
+			break;
+		}
+		// CmdWithoutParams
+		case CommandParser::STOP_STATE_STREAM: {
+			#ifdef ALLOW_CMD_PARSER_DEBUG
+				Serial.print(F("cmd stop state stream:"));
+				Serial.println(reinterpret_cast<CommandParser::CmdWithoutParams *>(buffer)->cmd, DEC);
+			#endif
+			break;
+		}
+		// wrong cmd 
+		default: {
+			#ifdef ALLOW_CMD_PARSER_DEBUG
+				Serial.print(F("wrong cmd:"));
+				Serial.println(buffer[2], DEC);
+			#endif
+			break;
+		}
+	}
+}
+
+
 void setup() {
 	// 0. setup serial
 	Serial.begin(115200);
+	cmd_parser.set_callback(cmd_protocol_handler);
 	//1. setup stepper driver
 	pinMode(ENABLE_PIN, OUTPUT);
 	digitalWrite(ENABLE_PIN, LOW);
@@ -263,6 +342,9 @@ int find_nearest_button() {
 	}
 	return nearest_button;
 }
+
+
+
 unsigned long last_send_btn_state_time = millis();
 void loop() {
 	unsigned long cur_time = millis();
