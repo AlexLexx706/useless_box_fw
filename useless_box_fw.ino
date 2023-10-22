@@ -57,6 +57,9 @@
 #define SERVO_INIT_TIMEOUT 300
 #define MOVE_SERVO_INIT_TIMEOUT 1500
 #define DOOR_LOCK_TIME 1000
+#define SEND_BTN_STATES_PERIOD_MS 100
+
+
 //description of button state
 struct ButtonState {
 	char state;
@@ -558,8 +561,9 @@ void loop() {
 	#endif
 	stepper.run();
 	i2c_master.loop();
-  if (cur_time - last_send_btn_state_time >= 100) {
-    last_send_btn_state_time = cur_time;
-    send_btn_state();
-  }
+
+	if (cur_time - last_send_btn_state_time >= SEND_BTN_STATES_PERIOD_MS) {
+		last_send_btn_state_time = cur_time;
+		send_btn_state();
+	}
 }
