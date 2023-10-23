@@ -88,6 +88,7 @@ static Servo servo_1;
 static Servo servo_2;
 static AccelStepper stepper(AccelStepper::DRIVER, STEP_PIN, DIR_PIN);
 static AsyncI2CMaster i2c_master;
+
 struct EncoderSate {
 	unsigned long s_time;
 	long revolutions;		// number of revolutions the encoder has made
@@ -96,6 +97,7 @@ struct EncoderSate {
 	long offset;			// used for set to zerro encoder pos
 };
 static EncoderSate encoder_state = {millis(), 0, 0, 0, 0};
+
 struct ProcessState {
 	int state;
 	int nearest_button;
@@ -103,7 +105,44 @@ struct ProcessState {
 	unsigned long wait_time;
 };
 
-CommandParser cmd_parser;
+CommandParser command_parser;
+
+//write error to port
+void print_er(const char * msg) {
+	char buffer[60];
+	int len = snprintf(buffer, sizeof(buffer), "ER%03X%s\n", strlen(msg), msg);
+	Serial.write(buffer, len);
+}
+
+//write responce msg 
+void print_re(const char * prefix, const char * msg) {
+	char buffer[60];
+	int len = snprintf(buffer, sizeof(buffer), "RE%03X%%%s%%%s\n", strlen(prefix) + strlen(msg) + 2, prefix, msg);
+	Serial.write(buffer, len);
+}
+
+void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * parameter) {
+	//echo command
+	if (cmd == nullptr) {
+		print_re(prefix, "");
+	//process commands
+	} else if (strcmp(cmd, 'set') == 0) {
+		//blablabla
+	} else if (strcmp(cmd, 'print') == 0) {
+		//blablabla
+	}
+}
+
+void command_parser_parce_stream() {
+	// 1. read data
+	while (1) {
+		if (Serial.available()) {
+			command_parser.process_symbol(Serial.read());
+		} else {
+			return;
+		}
+	}
+}
 
 
 //state of process
@@ -143,6 +182,7 @@ void send_btn_state() {
 	Serial.write(buffer, sizeof(buffer));
 }
 
+/*
 
 void cmd_protocol_handler(char * buffer, int size) {
 	switch (buffer[2]) {
@@ -221,11 +261,12 @@ void cmd_protocol_handler(char * buffer, int size) {
 	}
 }
 
+*/
 
 void setup() {
 	// 0. setup serial
 	Serial.begin(115200);
-	cmd_parser.set_callback(cmd_protocol_handler);
+	command_parser.set_callback(print_er, command_parser_cmd_cb);
 	//1. setup stepper driver
 	pinMode(ENABLE_PIN, OUTPUT);
 	digitalWrite(ENABLE_PIN, LOW);
@@ -351,7 +392,7 @@ int find_nearest_button() {
 unsigned long last_send_btn_state_time = millis();
 void loop() {
 	unsigned long cur_time = millis();
-	cmd_parser.parce_stream();
+	command_parser_parce_stream();
 	//update buttons
 	update_buttons(cur_time);
 	switch (proc.state) {
