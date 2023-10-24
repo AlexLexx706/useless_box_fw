@@ -68,6 +68,7 @@
 static int current_mode = 0;
 static int debug_level = 0;
 static int last_command = 0;
+static bool enable_send_btn_state = false;
 
 //description of button state
 struct ButtonState {
@@ -225,6 +226,27 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 		} else {
 			print_er(prefix, "{6,wrong parameter}");
 		}
+	//enable messages
+	} else if (strcmp(cmd, "em") == 0) {
+		//enable buttons messages
+		if (strcmp(parameter, "buttons") == 0) {
+			enable_send_btn_state = true;
+			print_re(prefix, "");
+		} else {
+			print_er(prefix, "{6,wrong parameter}");
+		}
+	//disable messages
+	} else if (strcmp(cmd, "dm") == 0) {
+		//enable buttons messages
+		if (strcmp(parameter, "buttons") == 0) {
+			enable_send_btn_state = false;
+			print_re(prefix, "");
+		//disable all messages
+		} else {
+			enable_send_btn_state = false;
+			debug_level = 0;
+			print_re(prefix, "");
+		}
 	//wrong command
 	} else {
 		print_er(prefix, "{8,wrong command}");
@@ -264,7 +286,6 @@ void dump_error_status(uint8_t status) {
 	}
 }
 void send_btn_state() {
-	return;
 	char buffer[3];
 	*((unsigned short *)buffer) =
 		buttons_states[0].state << 0 |
@@ -703,7 +724,7 @@ void loop() {
 	stepper.run();
 	i2c_master.loop();
 
-	if (cur_time - last_send_btn_state_time >= SEND_BTN_STATES_PERIOD_MS) {
+	if (enable_send_btn_state && cur_time - last_send_btn_state_time >= SEND_BTN_STATES_PERIOD_MS) {
 		last_send_btn_state_time = cur_time;
 		send_btn_state();
 	}

@@ -56,8 +56,8 @@ public:
                     state = 1;
                 //commands
                 } else if (symbol >= 0X61 && symbol <= 0x7A) {
-                    prefix[prefix_index] = 0;
                     cmd[cmd_index++] = symbol;
+                    cmd[cmd_index] = 0;
                     state = 2;
                 //error: wrong symbols
                 } else if (symbol == '\n' || symbol == '\r') {
@@ -78,7 +78,6 @@ public:
             case 1: {
                 //complete prefix
                 if (symbol == '%') {
-                    prefix[prefix_index] = 0;
                     state = 2;
                 //checking prefix alphabet 
                 } else if (
@@ -89,17 +88,16 @@ public:
                     //collect prefix
                     if (prefix_index < sizeof(prefix) - 1) {
                         prefix[prefix_index++] = symbol;
+                        prefix[prefix_index] = 0;
                     //error: wrong prefix len
                     } else {
                         assert(error_cb);
-                        prefix[prefix_index] = 0;
                         error_cb(prefix, "{2,wrong prefix len}");
                         reset();
                     }
                 //error: wrong prefix symbols
                 } else {
                     assert(error_cb);
-                    prefix[prefix_index] = 0;
                     error_cb(prefix, "{3,wrong prefix symbols}");
                     reset();
                 }
@@ -112,6 +110,7 @@ public:
                     //collect cmd
                     if (cmd_index < sizeof(cmd) - 1) {
                         cmd[cmd_index++] = symbol;
+                        cmd[cmd_index] = 0;
                     //error: commad size
                     } else {
                         assert(error_cb);
@@ -120,19 +119,15 @@ public:
                     }
                 //switch to parameter reading
                 } else if (symbol == ',') {
-                    cmd[cmd_index] = 0;
                     state = 3;
+                } else if (symbol == '\n' || symbol == '\r') {
+                    assert(cmd_cb);
+                    cmd_cb(prefix, cmd, nullptr, nullptr);
+                    reset();
                 //error or only prefix
                 } else {
-                    //only prefix
-                    if (prefix_index && !cmd_index && (symbol == '\n' || symbol == '\r')) {
-                        assert(cmd_cb);
-                        cmd_cb(prefix, nullptr, nullptr, nullptr);
-                    //error: cmd incompleted
-                    } else {
-                        assert(error_cb);
-                        error_cb(prefix, "{6,wrong parameter!!!}");
-                    }
+                    assert(error_cb);
+                    error_cb(prefix, "{6,wrong parameter!!!}");
                     reset();
                 }
                 break;
@@ -146,6 +141,7 @@ public:
                     //collect parameter
                     if (parameter_index < sizeof(parameter) - 1) {
                         parameter[parameter_index++] = symbol;
+                        parameter[parameter_index] = 0;
                     //error: wrong parmeter size
                     } else {
                         assert(error_cb);
@@ -155,12 +151,10 @@ public:
                 //complete reading command
                 } else if (symbol == '\n' || symbol == '\r') {
                     assert(cmd_cb);
-                    parameter[parameter_index] = 0;
                     cmd_cb(prefix, cmd, parameter, nullptr);
                     reset();
                 //switch to valiable
                 } else if (symbol == ',') {
-                    parameter[parameter_index] = 0;
                     state = 4;
                 //wrong syntax
                 } else {
@@ -179,6 +173,7 @@ public:
                     //collect value
                     if (value_index < sizeof(value) - 1) {
                         value[value_index++] = symbol;
+                        value[value_index] = 0;
                     //error: wrong value size
                     } else {
                         assert(error_cb);
@@ -187,7 +182,6 @@ public:
                     }
                 //complete reading command
                 } else if (symbol == '\n' || symbol == '\r') {
-                    value[value_index] = 0;
                     assert(cmd_cb);
                     cmd_cb(prefix, cmd, parameter, value);
                     reset();
