@@ -6,7 +6,7 @@
 
 class CommandParser {
 public:
-    typedef void (*error_cb_t)(const char * msg);
+    typedef void (*error_cb_t)(const char * prefix, const char * msg);
     typedef void (*cmd_cb_t)(const char * prefix, const char * cmd, const char * parameter, const char * value);
 
 private:
@@ -15,7 +15,7 @@ private:
 
     int state = 0;
 
-    char prefix[9];
+    char prefix[9] = {0};
     int prefix_index = 0;
 
     char cmd[9];
@@ -55,11 +55,13 @@ public:
                     //wrong symbol
                     } else {
                         assert(error_cb);
-                        error_cb("{1,wrong syntax}");
+                        error_cb(prefix, "{1,wrong syntax}");
                     }
                     prefix_index = 0;
+                    prefix[prefix_index] = 0;
                     cmd_index = 0;
                     parameter_index = 0;
+                    value_index = 0;
                 }
                 break;
             }
@@ -67,8 +69,8 @@ public:
             case 1: {
                 //complete prefix
                 if (symbol == '%') {
-                    state = 2;
                     prefix[prefix_index] = 0;
+                    state = 2;
                 //checking prefix alphabet 
                 } else if (
                         symbol >= 0x30 && symbol <= 0x39 ||
@@ -81,21 +83,27 @@ public:
                     //error: wrong prefix len
                     } else {
                         assert(error_cb);
-                        error_cb("{2,wrong prefix len}");
+                        prefix[prefix_index] = 0;
+                        error_cb(prefix, "{2,wrong prefix len}");
 
                         state = 0;
                         prefix_index = 0;
+                        prefix[prefix_index] = 0;
                         cmd_index = 0;
                         parameter_index = 0;
+                        value_index = 0;
                     }
                 //error: wrong prefix symbols
                 } else {
                     assert(error_cb);
-                    error_cb("{3,wrong prefix symbols}");
+                    prefix[prefix_index] = 0;
+                    error_cb(prefix, "{3,wrong prefix symbols}");
                     state = 0;
                     prefix_index = 0;
+                    prefix[prefix_index] = 0;
                     cmd_index = 0;
                     parameter_index = 0;
+                    value_index = 0;
                 }
                 break;
             }
@@ -109,11 +117,13 @@ public:
                     //error: commad size
                     } else {
                         assert(error_cb);
-                        error_cb("{4,wrong cmd size}");
+                        error_cb(prefix, "{4,wrong cmd size}");
                         state = 0;
                         prefix_index = 0;
+                        prefix[prefix_index] = 0;
                         cmd_index = 0;
                         parameter_index = 0;
+                        value_index = 0;
                     }
                 //switch to parameter reading
                 } else if (symbol == ',') {
@@ -122,11 +132,13 @@ public:
                 //error: cmd incompleted
                 } else {
                     assert(error_cb);
-                    error_cb("{6,wrong parameter}");
+                    error_cb(prefix, "{6,wrong parameter}");
                     state = 0;
                     prefix_index = 0;
+                    prefix[prefix_index] = 0;
                     cmd_index = 0;
                     parameter_index = 0;
+                    value_index = 0;
                 }
                 break;
             }
@@ -142,18 +154,78 @@ public:
                     //error: wrong parmeter size
                     } else {
                         assert(error_cb);
-                        error_cb("{5,wrong param size}");
+                        error_cb(prefix, "{5,wrong param size}");
                         state = 0;
                         prefix_index = 0;
+                        prefix[prefix_index] = 0;
                         cmd_index = 0;
                         parameter_index = 0;
+                        value_index = 0;
                     }
-                //complete reading
+                //complete reading command
                 } else if (symbol == '\n') {
                     parameter[parameter_index] = 0;
+                    value_index = 0;
                     assert(cmd_cb);
                     cmd_cb(prefix, cmd, parameter, nullptr);
+                    prefix_index = 0;
+                    prefix[prefix_index] = 0;
                     state = 0;
+                //switch to valiable
+                } else if (symbol == ',') {
+                    parameter[parameter_index] = 0;
+                    state = 4;
+                //wrong syntax
+                } else {
+                    assert(error_cb);
+                    error_cb(prefix, "{1,wrong syntax}");
+                    state = 0;
+                    prefix_index = 0;
+                    prefix[prefix_index] = 0;
+                    cmd_index = 0;
+                    parameter_index = 0;
+                    value_index = 0;
+                }
+                break;
+            }
+            //collect parmeter
+            case 4: {
+                if (symbol >= 0x30 && symbol <= 0x39 ||
+                        symbol >= 0X41 && symbol <= 0x5A ||
+                        symbol >= 0X61 && symbol <= 0x7A ||
+                        symbol == 0x5F) {
+                    //collect value
+                    if (value_index < sizeof(value) - 1) {
+                        value[value_index++] = symbol;
+                    //error: wrong value size
+                    } else {
+                        assert(error_cb);
+                        error_cb(prefix, "{7,wrong value size}");
+                        state = 0;
+                        prefix_index = 0;
+                        prefix[prefix_index] = 0;
+                        cmd_index = 0;
+                        parameter_index = 0;
+                        value_index = 0;
+                    }
+                //complete reading command
+                } else if (symbol == '\n') {
+                    value[value_index] = 0;
+                    assert(cmd_cb);
+                    cmd_cb(prefix, cmd, parameter, value);
+                    prefix_index = 0;
+                    prefix[prefix_index] = 0;
+                    state = 0;
+                //wrong syntax
+                } else {
+                    assert(error_cb);
+                    error_cb(prefix, "{1,wrong syntax}");
+                    state = 0;
+                    prefix_index = 0;
+                    prefix[prefix_index] = 0;
+                    cmd_index = 0;
+                    parameter_index = 0;
+                    value_index = 0;
                 }
                 break;
             }
