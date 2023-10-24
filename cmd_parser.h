@@ -7,7 +7,7 @@
 class CommandParser {
 public:
     typedef void (*error_cb_t)(const char * msg);
-    typedef void (*cmd_cb_t)(const char * prefix, const char * cmd, const char * parameter);
+    typedef void (*cmd_cb_t)(const char * prefix, const char * cmd, const char * parameter, const char * value);
 
 private:
     error_cb_t error_cb = nullptr;
@@ -23,6 +23,9 @@ private:
 
     char parameter[33];
     int parameter_index = 0;
+
+    char value[33];
+    int value_index = 0;
 
 public:
     CommandParser() {}
@@ -48,7 +51,7 @@ public:
                     //echo prefix
                     if (prefix_index) {
                         assert(cmd_cb);
-                        cmd_cb(prefix, nullptr, nullptr);
+                        cmd_cb(prefix, nullptr, nullptr, nullptr);
                     //wrong symbol
                     } else {
                         assert(error_cb);
@@ -149,7 +152,7 @@ public:
                 } else if (symbol == '\n') {
                     parameter[parameter_index] = 0;
                     assert(cmd_cb);
-                    cmd_cb(prefix, cmd, parameter);
+                    cmd_cb(prefix, cmd, parameter, nullptr);
                     state = 0;
                 }
                 break;

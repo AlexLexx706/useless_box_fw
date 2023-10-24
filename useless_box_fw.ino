@@ -59,6 +59,15 @@
 #define DOOR_LOCK_TIME 1000
 #define SEND_BTN_STATES_PERIOD_MS 100
 
+#define VERSION "1.0"
+#define AUTHOR "alexlexx1@gmail.com"
+
+#define MAX_COMMAND 1
+#define MAX_DEBUG_LEVEL 1
+
+static int current_mode = 0;
+static int debug_level = 0;
+static int last_command = 0;
 
 //description of button state
 struct ButtonState {
@@ -66,6 +75,7 @@ struct ButtonState {
 	int pos;
 	unsigned long s_time;
 };
+
 //used for mapping buttons by index
 static int buttons_map[] = {
 	BUTTON_0, BUTTON_1, BUTTON_2, BUTTON_3, BUTTON_4, BUTTON_5,
@@ -107,6 +117,9 @@ struct ProcessState {
 
 CommandParser command_parser;
 
+//state of process
+ProcessState proc = {0, -1, 0, SERVO_INIT_TIMEOUT};
+
 //write error to port
 void print_er(const char * msg) {
 	char buffer[60];
@@ -121,15 +134,79 @@ void print_re(const char * prefix, const char * msg) {
 	Serial.write(buffer, len);
 }
 
-void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * parameter) {
+void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * parameter, const char * value) {
 	//echo command
 	if (cmd == nullptr) {
 		print_re(prefix, "");
-	//process commands
-	} else if (strcmp(cmd, 'set') == 0) {
-		//blablabla
-	} else if (strcmp(cmd, 'print') == 0) {
-		//blablabla
+	//process print commands
+	} else if (strcmp(cmd, "print") == 0) {
+		//print current version
+		if (strcmp(cmd, "/par/version") == 0) {
+			print_re(prefix, VERSION);
+		//print author
+		} else if (strcmp(cmd, "/par/author") == 0)  {
+			print_re(prefix, AUTHOR);
+		//print current mode: auto or manual
+		} else if (strcmp(cmd, "/par/mode") == 0)  {
+			if (current_mode == 0) {
+				print_re(prefix, "auto");
+			} else {
+				print_re(prefix, "manual");
+			}
+		//print current state of state machine in auto mode
+		} else if (strcmp(cmd, "/par/auto/state") == 0)  {
+			print_re(prefix, String(proc.state).c_str());
+		//print current debug level
+		} else if (strcmp(cmd, "/par/debug") == 0)  {
+			print_re(prefix, String(debug_level).c_str());
+		//print last command
+		} else if (strcmp(cmd, "/par/manual/last_command") == 0)  {
+			print_re(prefix, String(last_command).c_str());
+		} else {
+			print_er("{6,wrong parameter}");
+		}
+	//process set commands
+	} else if (strcmp(cmd, "set") == 0) {
+		//wrong value
+		if (value == nullptr) {
+			print_er("{7,wrong value}");
+			return;
+		}
+
+		//set mode
+		if (strcmp(parameter, "/par/mode") == 0) {
+			if (strcmp(value, "auto") == 0) {
+				current_mode = 0;
+				print_re(prefix, "");
+			} else if (strcmp(parameter, "manual") == 0) {
+				current_mode = 1;
+				print_re(prefix, "");
+			} else {
+				print_er("{7,wrong value}");
+			}
+		//set current command for manual mode
+		} else if (strcmp(parameter, "/par/manual/cmd") == 0) {
+			int cur_cmd = String(value).toInt();
+
+			if (cur_cmd >= 0 && cur_cmd < MAX_COMMAND) {
+				print_re(prefix, "");
+			} else {
+				print_er("{7,wrong value}");
+			}
+		//set debug level
+		} else if (strcmp(parameter, "/par/debug") == 0) {
+			int cur_debug = String(value).toInt();
+			if (cur_debug >= 0 && cur_debug < MAX_DEBUG_LEVEL) {
+				print_re(prefix, "");
+			} else {
+				print_er("{7,wrong value}");
+			}
+		} else {
+			print_er("{6,wrong parameter}");
+		}
+	//wrong command
+	} else {
+		print_er("{8,wrong command}");
 	}
 }
 
@@ -144,9 +221,6 @@ void command_parser_parce_stream() {
 	}
 }
 
-
-//state of process
-ProcessState proc = {0, -1, 0, SERVO_INIT_TIMEOUT};
 void dump_error_status(uint8_t status) {
 	switch(status) {
 		case I2C_STATUS_DEVICE_NOT_PRESENT:
