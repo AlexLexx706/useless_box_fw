@@ -27,9 +27,22 @@ private:
     char value[33];
     int value_index = 0;
 
+    void reset() {
+        state = 0;
+
+        prefix_index = 0;
+        prefix[prefix_index] = 0;
+        cmd_index = 0;
+        cmd[cmd_index] = 0;
+        parameter_index = 0;
+        parameter[parameter_index] = 0;
+        value_index = 0;
+        value[value_index] = 0;
+    }
+
 public:
     CommandParser() {}
-
+    int get_state() const {return state;}
     void set_callback(error_cb_t error_cb_, cmd_cb_t cmd_cb_) {
         error_cb = error_cb_;
         cmd_cb = cmd_cb_;
@@ -47,21 +60,17 @@ public:
                     cmd[cmd_index++] = symbol;
                     state = 2;
                 //error: wrong symbols
-                } else if (symbol == '\n') {
+                } else if (symbol == '\n' || symbol == '\r') {
                     //echo prefix
                     if (prefix_index) {
                         assert(cmd_cb);
                         cmd_cb(prefix, nullptr, nullptr, nullptr);
                     //wrong symbol
-                    } else {
+                    } else if (cmd_index) {
                         assert(error_cb);
                         error_cb(prefix, "{1,wrong syntax}");
                     }
-                    prefix_index = 0;
-                    prefix[prefix_index] = 0;
-                    cmd_index = 0;
-                    parameter_index = 0;
-                    value_index = 0;
+                    reset();
                 }
                 break;
             }
@@ -85,25 +94,14 @@ public:
                         assert(error_cb);
                         prefix[prefix_index] = 0;
                         error_cb(prefix, "{2,wrong prefix len}");
-
-                        state = 0;
-                        prefix_index = 0;
-                        prefix[prefix_index] = 0;
-                        cmd_index = 0;
-                        parameter_index = 0;
-                        value_index = 0;
+                        reset();
                     }
                 //error: wrong prefix symbols
                 } else {
                     assert(error_cb);
                     prefix[prefix_index] = 0;
                     error_cb(prefix, "{3,wrong prefix symbols}");
-                    state = 0;
-                    prefix_index = 0;
-                    prefix[prefix_index] = 0;
-                    cmd_index = 0;
-                    parameter_index = 0;
-                    value_index = 0;
+                    reset();
                 }
                 break;
             }
@@ -118,27 +116,24 @@ public:
                     } else {
                         assert(error_cb);
                         error_cb(prefix, "{4,wrong cmd size}");
-                        state = 0;
-                        prefix_index = 0;
-                        prefix[prefix_index] = 0;
-                        cmd_index = 0;
-                        parameter_index = 0;
-                        value_index = 0;
+                        reset();
                     }
                 //switch to parameter reading
                 } else if (symbol == ',') {
                     cmd[cmd_index] = 0;
                     state = 3;
-                //error: cmd incompleted
+                //error or only prefix
                 } else {
-                    assert(error_cb);
-                    error_cb(prefix, "{6,wrong parameter}");
-                    state = 0;
-                    prefix_index = 0;
-                    prefix[prefix_index] = 0;
-                    cmd_index = 0;
-                    parameter_index = 0;
-                    value_index = 0;
+                    //only prefix
+                    if (prefix_index && !cmd_index && (symbol == '\n' || symbol == '\r')) {
+                        assert(cmd_cb);
+                        cmd_cb(prefix, nullptr, nullptr, nullptr);
+                    //error: cmd incompleted
+                    } else {
+                        assert(error_cb);
+                        error_cb(prefix, "{6,wrong parameter!!!}");
+                    }
+                    reset();
                 }
                 break;
             }
@@ -155,22 +150,14 @@ public:
                     } else {
                         assert(error_cb);
                         error_cb(prefix, "{5,wrong param size}");
-                        state = 0;
-                        prefix_index = 0;
-                        prefix[prefix_index] = 0;
-                        cmd_index = 0;
-                        parameter_index = 0;
-                        value_index = 0;
+                        reset();
                     }
                 //complete reading command
-                } else if (symbol == '\n') {
-                    parameter[parameter_index] = 0;
-                    value_index = 0;
+                } else if (symbol == '\n' || symbol == '\r') {
                     assert(cmd_cb);
+                    parameter[parameter_index] = 0;
                     cmd_cb(prefix, cmd, parameter, nullptr);
-                    prefix_index = 0;
-                    prefix[prefix_index] = 0;
-                    state = 0;
+                    reset();
                 //switch to valiable
                 } else if (symbol == ',') {
                     parameter[parameter_index] = 0;
@@ -179,12 +166,7 @@ public:
                 } else {
                     assert(error_cb);
                     error_cb(prefix, "{1,wrong syntax}");
-                    state = 0;
-                    prefix_index = 0;
-                    prefix[prefix_index] = 0;
-                    cmd_index = 0;
-                    parameter_index = 0;
-                    value_index = 0;
+                    reset();
                 }
                 break;
             }
@@ -201,31 +183,19 @@ public:
                     } else {
                         assert(error_cb);
                         error_cb(prefix, "{7,wrong value size}");
-                        state = 0;
-                        prefix_index = 0;
-                        prefix[prefix_index] = 0;
-                        cmd_index = 0;
-                        parameter_index = 0;
-                        value_index = 0;
+                        reset();
                     }
                 //complete reading command
-                } else if (symbol == '\n') {
+                } else if (symbol == '\n' || symbol == '\r') {
                     value[value_index] = 0;
                     assert(cmd_cb);
                     cmd_cb(prefix, cmd, parameter, value);
-                    prefix_index = 0;
-                    prefix[prefix_index] = 0;
-                    state = 0;
+                    reset();
                 //wrong syntax
                 } else {
                     assert(error_cb);
                     error_cb(prefix, "{1,wrong syntax}");
-                    state = 0;
-                    prefix_index = 0;
-                    prefix[prefix_index] = 0;
-                    cmd_index = 0;
-                    parameter_index = 0;
-                    value_index = 0;
+                    reset();
                 }
                 break;
             }

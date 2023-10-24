@@ -121,17 +121,38 @@ CommandParser command_parser;
 ProcessState proc = {0, -1, 0, SERVO_INIT_TIMEOUT};
 
 //write error to port
-void print_er(const char * msg) {
+void print_er(const char * prefix, const char * msg) {
+	assert(prefix);
+	assert(msg);
+
 	char buffer[60];
-	int len = snprintf(buffer, sizeof(buffer), "ER%03X%s\n", strlen(msg), msg);
+	int prefix_len = strlen(prefix);
+	int len;
+	if (prefix_len) {
+		len = snprintf(buffer, sizeof(buffer), "ER%03X%%%s%%%s\n\r", strlen(msg) + prefix_len + 2, prefix, msg);
+	} else {
+		len = snprintf(buffer, sizeof(buffer), "ER%03X%s\n\r", strlen(msg), msg);
+	}
 	Serial.write(buffer, len);
 }
 
 //write responce msg 
 void print_re(const char * prefix, const char * msg) {
+	assert(prefix);
+	assert(msg);
+
 	char buffer[60];
-	int len = snprintf(buffer, sizeof(buffer), "RE%03X%%%s%%%s\n", strlen(prefix) + strlen(msg) + 2, prefix, msg);
-	Serial.write(buffer, len);
+	int prefix_len = strlen(prefix);
+	int msg_len = strlen(msg);
+	int len;
+
+	if (prefix_len) {
+		len = snprintf(buffer, sizeof(buffer), "RE%03X%%%s%%%s\n\r", strlen(prefix) + msg_len + 2, prefix, msg);
+		Serial.write(buffer, len);
+	} else if (msg_len) {
+		len = snprintf(buffer, sizeof(buffer), "RE%03X%s\n\r",  msg_len, msg);
+		Serial.write(buffer, len);
+	}
 }
 
 void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * parameter, const char * value) {
@@ -141,35 +162,35 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 	//process print commands
 	} else if (strcmp(cmd, "print") == 0) {
 		//print current version
-		if (strcmp(cmd, "/par/version") == 0) {
+		if (strcmp(parameter, "/par/version") == 0) {
 			print_re(prefix, VERSION);
 		//print author
-		} else if (strcmp(cmd, "/par/author") == 0)  {
+		} else if (strcmp(parameter, "/par/author") == 0)  {
 			print_re(prefix, AUTHOR);
 		//print current mode: auto or manual
-		} else if (strcmp(cmd, "/par/mode") == 0)  {
+		} else if (strcmp(parameter, "/par/mode") == 0)  {
 			if (current_mode == 0) {
 				print_re(prefix, "auto");
 			} else {
 				print_re(prefix, "manual");
 			}
 		//print current state of state machine in auto mode
-		} else if (strcmp(cmd, "/par/auto/state") == 0)  {
+		} else if (strcmp(parameter, "/par/auto/state") == 0)  {
 			print_re(prefix, String(proc.state).c_str());
 		//print current debug level
-		} else if (strcmp(cmd, "/par/debug") == 0)  {
+		} else if (strcmp(parameter, "/par/debug") == 0)  {
 			print_re(prefix, String(debug_level).c_str());
 		//print last command
-		} else if (strcmp(cmd, "/par/manual/last_command") == 0)  {
+		} else if (strcmp(parameter, "/par/manual/last_command") == 0)  {
 			print_re(prefix, String(last_command).c_str());
 		} else {
-			print_er("{6,wrong parameter}");
+			print_er(prefix, "{6,wrong parameter}");
 		}
 	//process set commands
 	} else if (strcmp(cmd, "set") == 0) {
 		//wrong value
 		if (value == nullptr) {
-			print_er("{7,wrong value}");
+			print_er(prefix, "{7,wrong value}");
 			return;
 		}
 
@@ -178,11 +199,11 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 			if (strcmp(value, "auto") == 0) {
 				current_mode = 0;
 				print_re(prefix, "");
-			} else if (strcmp(parameter, "manual") == 0) {
+			} else if (strcmp(value, "manual") == 0) {
 				current_mode = 1;
 				print_re(prefix, "");
 			} else {
-				print_er("{7,wrong value}");
+				print_er(prefix, "{7,wrong value}");
 			}
 		//set current command for manual mode
 		} else if (strcmp(parameter, "/par/manual/cmd") == 0) {
@@ -191,7 +212,7 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 			if (cur_cmd >= 0 && cur_cmd < MAX_COMMAND) {
 				print_re(prefix, "");
 			} else {
-				print_er("{7,wrong value}");
+				print_er(prefix, "{7,wrong value}");
 			}
 		//set debug level
 		} else if (strcmp(parameter, "/par/debug") == 0) {
@@ -199,14 +220,14 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 			if (cur_debug >= 0 && cur_debug < MAX_DEBUG_LEVEL) {
 				print_re(prefix, "");
 			} else {
-				print_er("{7,wrong value}");
+				print_er(prefix, "{7,wrong value}");
 			}
 		} else {
-			print_er("{6,wrong parameter}");
+			print_er(prefix, "{6,wrong parameter}");
 		}
 	//wrong command
 	} else {
-		print_er("{8,wrong command}");
+		print_er(prefix, "{8,wrong command}");
 	}
 }
 
@@ -214,7 +235,12 @@ void command_parser_parce_stream() {
 	// 1. read data
 	while (1) {
 		if (Serial.available()) {
-			command_parser.process_symbol(Serial.read());
+			int symbol = Serial.read();
+			command_parser.process_symbol(symbol);
+			// Serial.print("symbol: ");
+			// Serial.print(char(symbol));
+			// Serial.print(" state: ");
+			// Serial.println(command_parser.get_state());
 		} else {
 			return;
 		}
