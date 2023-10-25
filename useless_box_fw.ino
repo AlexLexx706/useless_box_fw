@@ -71,7 +71,7 @@ static int last_command = 0;
 static bool enable_send_btn_state = false;
 static int door_state = 0;
 static int finger_state = 0;
-static int finger_pos = 0;
+static int finger_pos = -1600;
 
 
 //description of button state
@@ -184,11 +184,7 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 			print_re(prefix, AUTHOR);
 		//print current mode: auto or manual
 		} else if (strcmp(parameter, "/par/mode") == 0)  {
-			if (current_mode == 0) {
-				print_re(prefix, "auto");
-			} else {
-				print_re(prefix, "manual");
-			}
+			print_re(prefix, String(current_mode).c_str());
 		//print current state of state machine in auto mode
 		} else if (strcmp(parameter, "/par/auto/state") == 0)  {
 			print_re(prefix, String(proc.state).c_str());
@@ -214,10 +210,11 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 		}
 		//set mode
 		if (strcmp(parameter, "/par/mode") == 0) {
-			if (strcmp(value, "auto") == 0) {
-				current_mode = 0;
+			int _mode = String(value).toInt();
+			if (_mode == 0) {
+				current_mode = _mode;
 				print_re(prefix, "");
-			} else if (strcmp(value, "manual") == 0) {
+			} else if (_mode == 1) {
 				current_mode = 1;
 				print_re(prefix, "");
 			} else {
@@ -341,6 +338,7 @@ void send_btn_state() {
 	//send packet to port
 	Serial.print("BS004");
 	Serial.write(reinterpret_cast<byte *>(&packet), sizeof(packet));
+	Serial.println();
 }
 
 
@@ -652,6 +650,19 @@ void process_auto_mode(unsigned long cur_time) {
 }
 
 void process_manual_mode(unsigned long cur_time) {
+	if (!servo_1.attached()) {
+		servo_1.attach(SERVO_HOOK);
+		#ifdef DEBUG_SERVO_STATE
+			Serial.println(F("state 3: SERVO_HOOK attached"));
+		#endif
+	}
+	if (!servo_2.attached()) {
+		servo_2.attach(SERVO_DOOR);
+		#ifdef DEBUG_SERVO_STATE
+			Serial.println(F("state 3: SERVO_DOOR attached"));
+		#endif
+	}
+
 	switch (finger_state) {
 		// init state
 		case 0:
@@ -677,6 +688,8 @@ void process_manual_mode(unsigned long cur_time) {
 			servo_2.write(SERVO_DOOR_OPEN_POS);
 			break;
 	}
+
+	stepper.moveTo(finger_pos);
 }
 
 unsigned long last_send_btn_state_time = millis();

@@ -26,9 +26,9 @@ Current FW support simple text command interface like [GRIL interface](https://w
 
 - `print,/par/version` - string, display currend version FW
 * `print,/par/author` - string, show author info
-* `print,/par/mode` - string, show curent mode:
-  * `auto` - default mode (player can play with box)
-  * `manual` - mode allow to control box from external host
+* `print,/par/mode` - int, show curent mode:
+  * `0` - auto mode,  player can play with box, default
+  * `1` - manual mode, allow to control box from external host
 * `print,/par/auto/state` - int, print current state of state machine in auto mode
 * `print,/par/debug` - int, print current debug level
 * `print,/par/manual/finger` - int, print state of finger: 0 - `hide`, 1 - `ready`, 2 - `press`
@@ -38,8 +38,8 @@ Current FW support simple text command interface like [GRIL interface](https://w
 ### `set` command
 
 - `set,/par/mode,mode` - string, modes:
-  * `auto` - default, allow interact user with box in auto mode
-  * `manual` - allow to send control commands for ext controller
+  * `0` - auto mode, allow interact user with box in auto mode
+  * `1` - manual mode, allow to send control commands for ext controller
 * `set,/par/manual/finger` - int, set position of finger: 0 - `hide`, 1 - `ready`, 2 - `press`
 * `set,/par/manual/door` - int, set position of door: 0 - `close`, 1 - `open`
 * `set,/par/manual/pos` - int, set position of finger: range from `0...100`
