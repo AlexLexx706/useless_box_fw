@@ -241,7 +241,7 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 		//set current pos for manual mode
 		} else if (strcmp(parameter, "/par/manual/pos") == 0) {
 			int cur_finger_pos = String(value).toInt();
-			if (cur_finger_pos >= 100 && cur_finger_pos < 2500) {
+			if (cur_finger_pos >= 100 && cur_finger_pos <= 2500) {
 				finger_pos = -cur_finger_pos;
 				print_re(prefix, "");
 			} else {
@@ -689,7 +689,18 @@ void process_manual_mode(unsigned long cur_time) {
 			break;
 	}
 
-	stepper.moveTo(finger_pos);
+	//move finger to finger_pos
+	if (stepper.currentPosition() != finger_pos) {
+		stepper.moveTo(finger_pos);
+		#ifdef DISABLE_AT_STOP
+			digitalWrite(ENABLE_PIN, LOW);
+		#endif
+	} else {
+		stepper.stop();
+		#ifdef DISABLE_AT_STOP
+			digitalWrite(ENABLE_PIN, HIGH);
+		#endif
+	}
 }
 
 unsigned long last_send_btn_state_time = millis();
