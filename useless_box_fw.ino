@@ -80,7 +80,7 @@ struct ButtonState {
 //used for mapping buttons by index
 static int buttons_map[] = {
 	BUTTON_0, BUTTON_1, BUTTON_2, BUTTON_3, BUTTON_4, BUTTON_5,
-	BUTTON_6,BUTTON_7, BUTTON_8, BUTTON_END_LEFT, BUTTON_END_RIGHT};
+	BUTTON_6, BUTTON_7, BUTTON_8, BUTTON_END_LEFT, BUTTON_END_RIGHT};
 //contain button states
 static ButtonState buttons_states[] = {
 	{1, -2500, 0},
@@ -159,7 +159,7 @@ void print_re(const char * prefix, const char * msg) {
 void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * parameter, const char * value) {
 	//echo command
 	if (!strlen(prefix) && !strlen(cmd)) {
-		print_re(prefix, "%%%%");
+		print_re(prefix, "%%");
 		return;
 	}
 

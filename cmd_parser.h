@@ -155,9 +155,17 @@ public:
                     }
                 //complete reading parameter
                 } else if (symbol == '\n' || symbol == '\r') {
-                    assert(cmd_cb);
-                    cmd_cb(prefix, cmd, parameter, nullptr);
-                    reset();
+                    //wrong sintax
+                    if (!parameter_index) {
+                        assert(error_cb);
+                        error_cb(prefix, "{1,wrong syntax}");
+                        reset();
+                    //switch to valiable
+                    } else {
+                        assert(cmd_cb);
+                        cmd_cb(prefix, cmd, parameter, nullptr);
+                        reset();
+                    }
                 //checking of condition to move next step
                 } else if (symbol == ',') {
                     //can't be empty parameter
