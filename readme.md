@@ -31,32 +31,37 @@ Current FW support simple text command interface like [GRIL interface](https://w
   * `manual` - mode allow to control box from external host
 * `print,/par/auto/state` - int, print current state of state machine in auto mode
 * `print,/par/debug` - int, print current debug level
-* `print,/par/manual/last_command` - int, print last command
+* `print,/par/manual/finger` - int, print state of finger: 0 - `hide`, 1 - `ready`, 2 - `press`
+* `print,/par/manual/door` - int, print state of door: 0 - `close`, 1 - `open`
+* `print,/par/manual/pos` - int, print position of finger: range from `0...100`
 
 ### `set` command
 
 - `set,/par/mode,mode` - string, modes:
   * `auto` - default, allow interact user with box in auto mode
   * `manual` - allow to send control commands for ext controller
-* `set,/par/manual/cmd` - int, set current command for `manual` mode: ...
+* `set,/par/manual/finger` - int, set position of finger: 0 - `hide`, 1 - `ready`, 2 - `press`
+* `set,/par/manual/door` - int, set position of door: 0 - `close`, 1 - `open`
+* `set,/par/manual/pos` - int, set position of finger: range from `0...100`
 * `set,/par/debug` - int, set current debug level: ...
 
 ### `em` commands
 
-- `em,buttons` - activate sending message `BS003`..., contained current state of buttons
+- `em,state` - activate sending message `BS004`..., contained current state of box
 
 ### `dm` commands
 
-- `dm,buttons` - disable sending message `BS003`
+- `dm,state` - disable sending message `BS004`
 * `dm` - disable sending all messaged from device
 
 ## Messages
 
-### `BS003` - buttons state message, display current state of buttons
+### `BS004` - box state message, display current state of box
 
 ```
-struct ButtonsState {
-    uint16 state; //bit 0 - BUTTON_0 ... bit 8 - BUTTON_8; bit 9 - BUTTON_END_LEFT; bit 10 - BUTTON_END_RIGHT
+struct BoxState {
+    uint16 state; //bit 0 - BUTTON_0 ... bit 8 - BUTTON_8; bit 9 - BUTTON_END_LEFT; bit 10 - BUTTON_END_RIGHT, bit 11-12 - state of finger, bit 13 - state of door
+    uint8 pos; //position of finger
     uint8 cs; // Checksum = 0, not used now
 };
 ```

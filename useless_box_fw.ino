@@ -69,12 +69,23 @@ static int current_mode = 0;
 static int debug_level = 0;
 static int last_command = 0;
 static bool enable_send_btn_state = false;
+static int door_state = 0;
+static int finger_state = 0;
+static int finger_pos = 0;
+
 
 //description of button state
 struct ButtonState {
 	char state;
 	int pos;
 	unsigned long s_time;
+};
+
+//used for message BS
+struct BoxState {
+    short state; //bit 0 - BUTTON_0 ... bit 8 - BUTTON_8; bit 9 - BUTTON_END_LEFT; bit 10 - BUTTON_END_RIGHT, bit 11-12 - state of finger, bit 13 - state of door
+    byte pos; //position of finger
+    byte cs; // Checksum = 0, not used now
 };
 
 //used for mapping buttons by index
@@ -185,8 +196,12 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 		} else if (strcmp(parameter, "/par/debug") == 0)  {
 			print_re(prefix, String(debug_level).c_str());
 		//print last command
-		} else if (strcmp(parameter, "/par/manual/last_command") == 0)  {
-			print_re(prefix, String(last_command).c_str());
+		} else if (strcmp(parameter, "/par/manual/finger") == 0)  {
+			print_re(prefix, String(finger_state).c_str());
+		} else if (strcmp(parameter, "/par/manual/door") == 0)  {
+			print_re(prefix, String(door_state).c_str());
+		} else if (strcmp(parameter, "/par/manual/pos") == 0)  {
+			print_re(prefix, String(stepper.currentPosition()).c_str());
 		} else {
 			print_er(prefix, "{6,wrong parameter}");
 		}
@@ -197,7 +212,6 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 			print_er(prefix, "{7,wrong value}");
 			return;
 		}
-
 		//set mode
 		if (strcmp(parameter, "/par/mode") == 0) {
 			if (strcmp(value, "auto") == 0) {
@@ -209,11 +223,29 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 			} else {
 				print_er(prefix, "{7,wrong value}");
 			}
-		//set current command for manual mode
-		} else if (strcmp(parameter, "/par/manual/cmd") == 0) {
-			int cur_cmd = String(value).toInt();
-
-			if (cur_cmd >= 0 && cur_cmd < MAX_COMMAND) {
+		//set current finger state for manual mode
+		} else if (strcmp(parameter, "/par/manual/finger") == 0) {
+			int cur_finger_state = String(value).toInt();
+			if (cur_finger_state >= 0 && cur_finger_state < 3) {
+				finger_state = cur_finger_state;
+				print_re(prefix, "");
+			} else {
+				print_er(prefix, "{7,wrong value}");
+			}
+		//set current door state for manual mode
+		} else if (strcmp(parameter, "/par/manual/door") == 0) {
+			int cur_door_state = String(value).toInt();
+			if (cur_door_state >= 0 && cur_door_state < 2) {
+				door_state = cur_door_state;
+				print_re(prefix, "");
+			} else {
+				print_er(prefix, "{7,wrong value}");
+			}
+		//set current pos for manual mode
+		} else if (strcmp(parameter, "/par/manual/pos") == 0) {
+			int cur_finger_pos = String(value).toInt();
+			if (cur_finger_pos >= 100 && cur_finger_pos < 2500) {
+				finger_pos = -cur_finger_pos;
 				print_re(prefix, "");
 			} else {
 				print_er(prefix, "{7,wrong value}");
@@ -232,7 +264,7 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 	//enable messages
 	} else if (strcmp(cmd, "em") == 0) {
 		//enable buttons messages
-		if (strcmp(parameter, "buttons") == 0) {
+		if (strcmp(parameter, "state") == 0) {
 			enable_send_btn_state = true;
 			print_re(prefix, "");
 		} else {
@@ -241,7 +273,7 @@ void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * p
 	//disable messages
 	} else if (strcmp(cmd, "dm") == 0) {
 		//enable buttons messages
-		if (strcmp(parameter, "buttons") == 0) {
+		if (strcmp(parameter, "state") == 0) {
 			enable_send_btn_state = false;
 			print_re(prefix, "");
 		//disable all messages
@@ -262,10 +294,6 @@ void command_parser_parce_stream() {
 		if (Serial.available()) {
 			int symbol = Serial.read();
 			command_parser.process_symbol(symbol);
-			// Serial.print("symbol: ");
-			// Serial.print(char(symbol));
-			// Serial.print(" state: ");
-			// Serial.println(command_parser.get_state());
 		} else {
 			return;
 		}
@@ -288,9 +316,12 @@ void dump_error_status(uint8_t status) {
 			break;
 	}
 }
+
 void send_btn_state() {
 	char buffer[3];
-	*((unsigned short *)buffer) =
+	BoxState packet;
+
+	packet.state =
 		buttons_states[0].state << 0 |
 		buttons_states[1].state << 1 |
 		buttons_states[2].state << 2 |
@@ -301,91 +332,17 @@ void send_btn_state() {
 		buttons_states[7].state << 7 |
 		buttons_states[8].state << 8 |
 		buttons_states[9].state << 9 |
-		buttons_states[10].state << 10;
-	buffer[2] = '\n';
-	Serial.write(buffer, sizeof(buffer));
+		buttons_states[10].state << 10 |
+		finger_state << 11 |
+		door_state << 13;
+	packet.pos = stepper.currentPosition();
+	packet.cs = 0;
+
+	//send packet to port
+	Serial.print("BS004");
+	Serial.write(reinterpret_cast<byte *>(&packet), sizeof(packet));
 }
 
-/*
-
-void cmd_protocol_handler(char * buffer, int size) {
-	switch (buffer[2]) {
-		// CmdWithoutParams
-		case CommandParser::OPEN_DOOR: {
-			#ifdef ALLOW_CMD_PARSER_DEBUG
-				Serial.print(F("cmd open door:"));
-				Serial.println(reinterpret_cast<CommandParser::CmdWithoutParams *>(buffer)->cmd, DEC);
-			#endif
-			break;
-		}
-		// CmdWithoutParams
-		case CommandParser::CLOSE_DOOR: {
-			#ifdef ALLOW_CMD_PARSER_DEBUG
-				Serial.print(F("cmd close door:"));
-				Serial.println(reinterpret_cast<CommandParser::CmdWithoutParams *>(buffer)->cmd, DEC);
-			#endif
-			break;
-		}
-		// CmdMoveFinger
-		case CommandParser::PRESS_BUTTON: {
-			#ifdef ALLOW_CMD_PARSER_DEBUG
-				Serial.print(F("cmd press button cmd:"));
-				Serial.print(reinterpret_cast<CommandParser::CmdMoveFinger *>(buffer)->cmd, DEC);
-				Serial.print(F(" btn:"));
-				Serial.println(reinterpret_cast<CommandParser::CmdMoveFinger *>(buffer)->btn, DEC);
-			#endif
-			break;
-		}
-		// CmdMoveServo
-		case CommandParser::MOVE_SERVO: {
-			#ifdef ALLOW_CMD_PARSER_DEBUG
-				Serial.print(F("cmd move servo cmd:"));
-				Serial.print(reinterpret_cast<CommandParser::CmdMoveServo *>(buffer)->cmd, DEC);
-				Serial.print(F(" num:"));
-				Serial.print(reinterpret_cast<CommandParser::CmdMoveServo *>(buffer)->num, DEC);
-				Serial.print(F(" val:"));
-				Serial.println(reinterpret_cast<CommandParser::CmdMoveServo *>(buffer)->value, DEC);
-			#endif
-			break;
-		}
-		// CmdMoveFinger
-		case CommandParser::MOVE_FINGER: {
-			#ifdef ALLOW_CMD_PARSER_DEBUG
-				Serial.print(F("cmd move finger cmd:"));
-				Serial.print(reinterpret_cast<CommandParser::CmdMoveFinger *>(buffer)->cmd, DEC);
-				Serial.print(F(" btn:"));
-				Serial.println(reinterpret_cast<CommandParser::CmdMoveFinger *>(buffer)->btn, DEC);
-			#endif
-			break;
-		}
-		// CmdWithoutParams
-		case CommandParser::ACTIVATE_STATE_STREAM: {
-			#ifdef ALLOW_CMD_PARSER_DEBUG
-				Serial.print(F("cmd activate state stream:"));
-				Serial.println(reinterpret_cast<CommandParser::CmdWithoutParams *>(buffer)->cmd, DEC);
-			#endif
-			break;
-		}
-		// CmdWithoutParams
-		case CommandParser::STOP_STATE_STREAM: {
-			#ifdef ALLOW_CMD_PARSER_DEBUG
-				Serial.print(F("cmd stop state stream:"));
-				Serial.println(reinterpret_cast<CommandParser::CmdWithoutParams *>(buffer)->cmd, DEC);
-			#endif
-			break;
-		}
-		// wrong cmd 
-		default: {
-			#ifdef ALLOW_CMD_PARSER_DEBUG
-				Serial.print(F("wrong cmd:"));
-				Serial.println(buffer[2], DEC);
-			#endif
-			break;
-		}
-	}
-}
-
-*/
 
 void setup() {
 	// 0. setup serial
@@ -511,14 +468,7 @@ int find_nearest_button() {
 	return nearest_button;
 }
 
-
-
-unsigned long last_send_btn_state_time = millis();
-void loop() {
-	unsigned long cur_time = millis();
-	command_parser_parce_stream();
-	//update buttons
-	update_buttons(cur_time);
+void process_auto_mode(unsigned long cur_time) {
 	switch (proc.state) {
 		//0. move to start pos
 		case 0: {
@@ -699,6 +649,50 @@ void loop() {
 			break;
 		}
 	}
+}
+
+void process_manual_mode(unsigned long cur_time) {
+	switch (finger_state) {
+		// init state
+		case 0:
+			servo_1.write(SERVO_HOOK_INIT_POS);
+			break;
+		// ready state
+		case 1:
+			servo_1.write(SERVO_HOOK_RELEASE_POS);
+			break;
+		// press state
+		case 2:
+			servo_1.write(SERVO_HOOK_PRESS_POS);
+			break;
+	}
+
+	switch (door_state) {
+		// closs state
+		case 0:
+			servo_2.write(SERVO_DOOR_CLOSE_POS);
+			break;
+		// ready state
+		case 1:
+			servo_2.write(SERVO_DOOR_OPEN_POS);
+			break;
+	}
+}
+
+unsigned long last_send_btn_state_time = millis();
+void loop() {
+	unsigned long cur_time = millis();
+	command_parser_parce_stream();
+	//update buttons
+	update_buttons(cur_time);
+
+	//default, auto mode
+	if (current_mode == 0) {
+		process_auto_mode(cur_time);
+	} else {
+		process_manual_mode(cur_time);
+	}
+
 	long enc_pos = get_encoder_to_stepper_pos();
 	long stepper_cur_pos = stepper.currentPosition();
 	long offset = abs(enc_pos - stepper_cur_pos);
