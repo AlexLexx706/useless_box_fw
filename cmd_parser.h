@@ -13,23 +13,22 @@ private:
     error_cb_t error_cb = nullptr;
     cmd_cb_t cmd_cb = nullptr;
 
-    int state = 0;
+    int state;
 
-    char prefix[9] = {0};
-    int prefix_index = 0;
+    char prefix[9];
+    int prefix_index;
 
     char cmd[9];
-    int cmd_index = 0;
+    int cmd_index;
 
     char parameter[33];
-    int parameter_index = 0;
+    int parameter_index;
 
     char value[33];
-    int value_index = 0;
+    int value_index;
 
     void reset() {
         state = 0;
-
         prefix_index = 0;
         prefix[prefix_index] = 0;
         cmd_index = 0;
@@ -41,8 +40,14 @@ private:
     }
 
 public:
-    CommandParser() {}
-    int get_state() const {return state;}
+    CommandParser() {
+        reset();
+    }
+
+    int get_state() const {
+        return state;
+    }
+
     void set_callback(error_cb_t error_cb_, cmd_cb_t cmd_cb_) {
         error_cb = error_cb_;
         cmd_cb = cmd_cb_;
@@ -60,16 +65,7 @@ public:
                     cmd[cmd_index] = 0;
                     state = 2;
                 //error: wrong symbols
-                } else if (symbol == '\n' || symbol == '\r') {
-                    //echo prefix
-                    if (prefix_index) {
-                        assert(cmd_cb);
-                        cmd_cb(prefix, nullptr, nullptr, nullptr);
-                    //wrong symbol
-                    } else if (cmd_index) {
-                        assert(error_cb);
-                        error_cb(prefix, "{1,wrong syntax}");
-                    }
+                } else {
                     reset();
                 }
                 break;
@@ -79,7 +75,7 @@ public:
                 //complete prefix
                 if (symbol == '%') {
                     state = 2;
-                //checking prefix alphabet 
+                //checking prefix alphabet
                 } else if (
                         symbol >= 0x30 && symbol <= 0x39 ||
                         symbol >= 0X41 && symbol <= 0x5A ||
@@ -117,9 +113,18 @@ public:
                         error_cb(prefix, "{4,wrong cmd size}");
                         reset();
                     }
-                //switch to parameter reading
+                //checking of condition to move next step
                 } else if (symbol == ',') {
-                    state = 3;
+                    //can't be empty command: wrong syntax
+                    if (!cmd_index) {
+                        assert(error_cb);
+                        error_cb(prefix, "{1,wrong syntax}");
+                        reset();
+                    //switch to parameter reading
+                    } else {
+                        state = 3;
+                    }
+                //commad or prefix complete
                 } else if (symbol == '\n' || symbol == '\r') {
                     assert(cmd_cb);
                     cmd_cb(prefix, cmd, nullptr, nullptr);
@@ -148,14 +153,22 @@ public:
                         error_cb(prefix, "{5,wrong param size}");
                         reset();
                     }
-                //complete reading command
+                //complete reading parameter
                 } else if (symbol == '\n' || symbol == '\r') {
                     assert(cmd_cb);
                     cmd_cb(prefix, cmd, parameter, nullptr);
                     reset();
-                //switch to valiable
+                //checking of condition to move next step
                 } else if (symbol == ',') {
-                    state = 4;
+                    //can't be empty parameter
+                    if (!parameter_index) {
+                        assert(error_cb);
+                        error_cb(prefix, "{1,wrong syntax}");
+                        reset();
+                    //switch to valiable
+                    } else {
+                        state = 4;
+                    }
                 //wrong syntax
                 } else {
                     assert(error_cb);
@@ -180,11 +193,19 @@ public:
                         error_cb(prefix, "{7,wrong value size}");
                         reset();
                     }
-                //complete reading command
+                //checking contition of exit
                 } else if (symbol == '\n' || symbol == '\r') {
-                    assert(cmd_cb);
-                    cmd_cb(prefix, cmd, parameter, value);
-                    reset();
+                    //can't be empty value
+                    if (!value_index) {
+                        assert(error_cb);
+                        error_cb(prefix, "{1,wrong syntax}");
+                        reset();
+                    //complete reading value
+                    } else {
+                        assert(cmd_cb);
+                        cmd_cb(prefix, cmd, parameter, value);
+                        reset();
+                    }
                 //wrong syntax
                 } else {
                     assert(error_cb);

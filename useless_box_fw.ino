@@ -158,10 +158,13 @@ void print_re(const char * prefix, const char * msg) {
 
 void command_parser_cmd_cb(const char * prefix, const char * cmd, const char * parameter, const char * value) {
 	//echo command
-	if (cmd == nullptr) {
-		print_re(prefix, "");
-	//process print commands
-	} else if (strcmp(cmd, "print") == 0) {
+	if (!strlen(prefix) && !strlen(cmd)) {
+		print_re(prefix, "%%%%");
+		return;
+	}
+
+	//cheking print command
+	if (strcmp(cmd, "print") == 0) {
 		//print current version
 		if (strcmp(parameter, "/par/version") == 0) {
 			print_re(prefix, VERSION);
