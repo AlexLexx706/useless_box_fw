@@ -37,7 +37,7 @@ Current FW support simple text command interface like [GRIL interface](https://w
 
 ### `set` command
 
-- `set,/par/mode,mode` - string, modes:
+- `set,/par/mode,mode` - int, modes:
   * `0` - auto mode, allow interact user with box in auto mode
   * `1` - manual mode, allow to send control commands for ext controller
 * `set,/par/manual/finger` - int, set position of finger: 0 - `hide`, 1 - `ready`, 2 - `press`
