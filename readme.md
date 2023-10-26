@@ -42,7 +42,7 @@ Current FW support simple text command interface like [GRIL interface](https://w
   * `1` - manual mode, allow to send control commands for ext controller
 * `set,/par/manual/finger` - int, set position of finger: 0 - `hide`, 1 - `ready`, 2 - `press`
 * `set,/par/manual/door` - int, set position of door: 0 - `close`, 1 - `open`
-* `set,/par/manual/pos` - int, set position of finger: range from `0...100`
+* `set,/par/manual/pos` - int, set position of finger: range from `100..2500`
 * `set,/par/debug` - int, set current debug level: ...
 
 ### `em` commands
