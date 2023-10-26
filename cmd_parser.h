@@ -1,12 +1,28 @@
 
-#ifndef CMD_GRIL_PARSER_H_
-#define CMD_GRIL_PARSER_H_
+#ifndef CMD_PARSER_H_
+#define CMD_PARSER_H_
 #define ALLOW_CMD_PARSER_DEBUG
 #include <assert.h>
 
+/**
+ * @brief Simple parser of commands in style: [%prefix%]cmd[,paramters][,value]
+ * 
+ */
 class CommandParser {
 public:
+    /**
+     * @brief callback function type, called if during parsing error riased
+     * @param prefix - current prefix, c string
+     * @param msg - description of error
+     */
     typedef void (*error_cb_t)(const char * prefix, const char * msg);
+    /**
+     * @brief callback function type, called when parsing conpleted well
+     * @param prefix - current prefix, c string, can be empty string
+     * @param cmd - current command, c string, can be empty string in case of empty prefix - echo command
+     * @param parameter - current parameter, c string, can be empty
+     * @param value - current value, c string, can be empty
+     */
     typedef void (*cmd_cb_t)(const char * prefix, const char * cmd, const char * parameter, const char * value);
 
 private:
@@ -26,7 +42,10 @@ private:
 
     char value[33];
     int value_index;
-
+    /**
+     * @brief reset parser state
+     * 
+     */
     void reset() {
         state = 0;
         prefix_index = 0;
@@ -44,15 +63,28 @@ public:
         reset();
     }
 
-    int get_state() const {
-        return state;
-    }
-
+    /**
+     * @brief Set the callback functions, this function must called before using process_symbol
+     * 
+     * @param error_cb_ - error callback function, called when parsing error presents
+     * @param cmd_cb_ - commands callback function, called when parsing success 
+     */
     void set_callback(error_cb_t error_cb_, cmd_cb_t cmd_cb_) {
+        assert(error_cb_);
+        assert(cmd_cb_);
         error_cb = error_cb_;
         cmd_cb = cmd_cb_;
     }
+
+    /**
+     * @brief process symbol though parser
+     * 
+     * @param symbol - char, stream simbol
+     */
     void process_symbol(char symbol) {
+        assert(error_cb);
+        assert(cmd_cb);
+
         switch (state) {
             //start reading prefix or command
             case 0: {
@@ -87,13 +119,11 @@ public:
                         prefix[prefix_index] = 0;
                     //error: wrong prefix len
                     } else {
-                        assert(error_cb);
                         error_cb("", "{1,wrong syntax}");
                         reset();
                     }
                 //error: wrong prefix symbols
                 } else {
-                    assert(error_cb);
                     error_cb("", "{1,wrong syntax}");
                     reset();
                 }
@@ -109,7 +139,6 @@ public:
                         cmd[cmd_index] = 0;
                     //error: commad size
                     } else {
-                        assert(error_cb);
                         error_cb(prefix, "{4,wrong cmd size}");
                         reset();
                     }
@@ -117,7 +146,6 @@ public:
                 } else if (symbol == ',') {
                     //can't be empty command: wrong syntax
                     if (!cmd_index) {
-                        assert(error_cb);
                         error_cb(prefix, "{1,wrong syntax}");
                         reset();
                     //switch to parameter reading
@@ -126,12 +154,10 @@ public:
                     }
                 //commad or prefix complete
                 } else if (symbol == '\n' || symbol == '\r') {
-                    assert(cmd_cb);
                     cmd_cb(prefix, cmd, nullptr, nullptr);
                     reset();
                 //error or only prefix
                 } else {
-                    assert(error_cb);
                     error_cb(prefix, "{6,wrong parameter!!!}");
                     reset();
                 }
@@ -151,7 +177,6 @@ public:
                         parameter[parameter_index] = 0;
                     //error: wrong parmeter size
                     } else {
-                        assert(error_cb);
                         error_cb(prefix, "{5,wrong param size}");
                         reset();
                     }
@@ -159,12 +184,10 @@ public:
                 } else if (symbol == '\n' || symbol == '\r') {
                     //wrong sintax
                     if (!parameter_index) {
-                        assert(error_cb);
                         error_cb(prefix, "{1,wrong syntax}");
                         reset();
                     //switch to valiable
                     } else {
-                        assert(cmd_cb);
                         cmd_cb(prefix, cmd, parameter, nullptr);
                         reset();
                     }
@@ -172,7 +195,6 @@ public:
                 } else if (symbol == ',') {
                     //can't be empty parameter
                     if (!parameter_index) {
-                        assert(error_cb);
                         error_cb(prefix, "{1,wrong syntax}");
                         reset();
                     //switch to valiable
@@ -181,7 +203,6 @@ public:
                     }
                 //wrong syntax
                 } else {
-                    assert(error_cb);
                     error_cb(prefix, "{1,wrong syntax}");
                     reset();
                 }
@@ -201,7 +222,6 @@ public:
                         value[value_index] = 0;
                     //error: wrong value size
                     } else {
-                        assert(error_cb);
                         error_cb(prefix, "{7,wrong value size}");
                         reset();
                     }
@@ -209,18 +229,15 @@ public:
                 } else if (symbol == '\n' || symbol == '\r') {
                     //can't be empty value
                     if (!value_index) {
-                        assert(error_cb);
                         error_cb(prefix, "{1,wrong syntax}");
                         reset();
                     //complete reading value
                     } else {
-                        assert(cmd_cb);
                         cmd_cb(prefix, cmd, parameter, value);
                         reset();
                     }
                 //wrong syntax
                 } else {
-                    assert(error_cb);
                     error_cb(prefix, "{1,wrong syntax}");
                     reset();
                 }
@@ -230,4 +247,4 @@ public:
     }
 };
 
-#endif
+#endif //CMD_PARSER_H_
