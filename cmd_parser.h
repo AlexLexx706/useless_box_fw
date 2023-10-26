@@ -88,13 +88,13 @@ public:
                     //error: wrong prefix len
                     } else {
                         assert(error_cb);
-                        error_cb(prefix, "{2,wrong prefix len}");
+                        error_cb("", "{1,wrong syntax}");
                         reset();
                     }
                 //error: wrong prefix symbols
                 } else {
                     assert(error_cb);
-                    error_cb(prefix, "{3,wrong prefix symbols}");
+                    error_cb("", "{1,wrong syntax}");
                     reset();
                 }
                 break;
@@ -142,7 +142,9 @@ public:
                 if (symbol >= 0x30 && symbol <= 0x39 ||
                         symbol >= 0X41 && symbol <= 0x5A ||
                         symbol >= 0X61 && symbol <= 0x7A ||
-                        symbol == 0x5F || symbol == 0x2F) {
+                        symbol == 0x5F ||
+                        symbol == 0x2F ||
+                        symbol == 0x2D) {
                     //collect parameter
                     if (parameter_index < sizeof(parameter) - 1) {
                         parameter[parameter_index++] = symbol;
@@ -185,12 +187,14 @@ public:
                 }
                 break;
             }
-            //collect parmeter
+            //collect value
             case 4: {
                 if (symbol >= 0x30 && symbol <= 0x39 ||
                         symbol >= 0X41 && symbol <= 0x5A ||
                         symbol >= 0X61 && symbol <= 0x7A ||
-                        symbol == 0x5F) {
+                        symbol == 0x5F ||
+                        symbol == 0x2D ||
+                        symbol == 0x2B) {
                     //collect value
                     if (value_index < sizeof(value) - 1) {
                         value[value_index++] = symbol;
