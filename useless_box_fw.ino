@@ -141,9 +141,9 @@ void print_er(const char * prefix, const char * msg) {
 	int prefix_len = strlen(prefix);
 	int len;
 	if (prefix_len) {
-		len = snprintf(buffer, sizeof(buffer), "ER%03X%%%s%%%s\n\r", strlen(msg) + prefix_len + 2, prefix, msg);
+		len = snprintf(buffer, sizeof(buffer), "ER%03X%%%s%%%s\r\n", strlen(msg) + prefix_len + 2, prefix, msg);
 	} else {
-		len = snprintf(buffer, sizeof(buffer), "ER%03X%s\n\r", strlen(msg), msg);
+		len = snprintf(buffer, sizeof(buffer), "ER%03X%s\r\n", strlen(msg), msg);
 	}
 	Serial.write(buffer, len);
 }
@@ -159,10 +159,10 @@ void print_re(const char * prefix, const char * msg) {
 	int len;
 
 	if (prefix_len) {
-		len = snprintf(buffer, sizeof(buffer), "RE%03X%%%s%%%s\n\r", strlen(prefix) + msg_len + 2, prefix, msg);
+		len = snprintf(buffer, sizeof(buffer), "RE%03X%%%s%%%s\r\n", strlen(prefix) + msg_len + 2, prefix, msg);
 		Serial.write(buffer, len);
 	} else if (msg_len) {
-		len = snprintf(buffer, sizeof(buffer), "RE%03X%s\n\r",  msg_len, msg);
+		len = snprintf(buffer, sizeof(buffer), "RE%03X%s\r\n",  msg_len, msg);
 		Serial.write(buffer, len);
 	}
 }
