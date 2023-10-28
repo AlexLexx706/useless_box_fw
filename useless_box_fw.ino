@@ -84,7 +84,7 @@ struct ButtonState {
 //used for message BS
 struct BoxState {
     short state; //bit 0 - BUTTON_0 ... bit 8 - BUTTON_8; bit 9 - BUTTON_END_LEFT; bit 10 - BUTTON_END_RIGHT, bit 11-12 - state of finger, bit 13 - state of door
-    byte pos; //position of finger
+    short pos; //position of finger
     byte cs; // Checksum = 0, not used now
 };
 
@@ -332,7 +332,7 @@ void send_btn_state() {
 		buttons_states[10].state << 10 |
 		finger_state << 11 |
 		door_state << 13;
-	packet.pos = stepper.currentPosition();
+	packet.pos = -stepper.currentPosition();
 	packet.cs = 0;
 
 	//send packet to port
